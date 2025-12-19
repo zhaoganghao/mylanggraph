@@ -7,7 +7,7 @@ from langgraph.constants import START, END
 from langgraph.graph import StateGraph
 from pydantic import BaseModel, Field
 from IPython.display import Image, display
-
+from langgraph.checkpoint.memory import InMemorySaver
 llm = init_chat_model(
     model="gpt-4o-mini",
     base_url="https://api.openai-proxy.org/v1",
@@ -15,7 +15,7 @@ llm = init_chat_model(
 )
 from langchain.tools import tool
 
-
+checkpointer = InMemorySaver()
 # Define tools
 @tool
 def multiply(a: int, b: int) -> int:
@@ -122,4 +122,4 @@ agent_builder.add_conditional_edges(
 agent_builder.add_edge("tool_node", "llm_call")
 
 # Compile the agent
-graph = agent_builder.compile(name="aaa")
+graph = agent_builder.compile(name="aaa",checkpointer=checkpointer)

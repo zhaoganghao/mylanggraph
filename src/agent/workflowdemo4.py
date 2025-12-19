@@ -3,10 +3,14 @@ import operator
 
 from langchain.chat_models import init_chat_model
 from langchain_core.messages import SystemMessage, HumanMessage
+from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.constants import START, END
 from langgraph.graph import StateGraph
 from pydantic import BaseModel, Field
 from IPython.display import Image, display
+from langchain.agents import AgentState
+
+from langgraph.checkpoint.memory import InMemorySaver
 
 llm = init_chat_model(
     model="gpt-4o-mini",
@@ -117,18 +121,29 @@ agent_builder.add_edge(START, "llm_call")
 agent_builder.add_conditional_edges(
     "llm_call",
     should_continue,
-    ["tool_node", "tool_node"]
+    ["tool_node", END]
 )
 agent_builder.add_edge("tool_node", "llm_call")
 
 # Compile the agent
-agent = agent_builder.compile()
+# Type = mysql
+# Host = rw-057399.mysql.qihudb.net:3029
+# User = super16969_rw
+# Password = 2208b7e84d2d0a34
+DB_URI = "postgresql://super16969_rw:2208b7e84d2d0a34@rw-057399.mysql.qihudb.net:3029/aduniondev?sslmode=disable"
+with PostgresSaver.from_conn_string(DB_URI) as checkpointer:
+    checkpointer.setup()
+    agent = agent_builder.compile(checkpointer=checkpointer)
+    display(Image(agent.get_graph(xray=True).draw_mermaid_png()))
+    config = {
+        "configurable": {
+            "thread_id": "1"
+        }
+    }
+    # Invoke
+    messages = [HumanMessage(content="Add 3 and 4.")]
+    messages = agent.invoke({"messages": messages}, config=config)
+    for m in messages["messages"]:
+        m.pretty_print()
 
 # Show the agent
-display(Image(agent.get_graph(xray=True).draw_mermaid_png()))
-
-# Invoke
-messages = [HumanMessage(content="Add 3 and 4.")]
-messages = agent.invoke({"messages": messages})
-for m in messages["messages"]:
-    m.pretty_print()
